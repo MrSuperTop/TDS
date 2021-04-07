@@ -1,7 +1,7 @@
 # ? Import
 from typing import Tuple, Union
+from math import sqrt
 
-import imagesize
 import pygame
 from pygame.constants import K_LEFT, K_RIGHT, K_a, K_d, K_UP, K_DOWN, K_w, K_s
 
@@ -14,8 +14,9 @@ window = pygame.display.set_mode([*cfg.windowSize])
 # * Groups
 collidingObjects = pygame.sprite.Group()
 
+
 # ? Function
-def getSize(imagePath: str, multiplier: Union[int, float]) -> tuple[int, int]:
+def getSize(image: object, multiplier: Union[int, float]) -> tuple[int, int]:
   """
   getSize Will return a new size of an image getting current and multipling
 
@@ -24,7 +25,7 @@ def getSize(imagePath: str, multiplier: Union[int, float]) -> tuple[int, int]:
       multiplier (int, float): Size of an image will by multiplied by it
   """
 
-  width, height = imagesize.get(imagePath)
+  width, height = image.get_size()
   return int(width * multiplier), int(height * multiplier)
 
 
@@ -44,52 +45,57 @@ class GameSprite(pygame.sprite.Sprite):
     imgPath = './images/' + imgPath
 
     tempImage = pygame.image.load(imgPath).convert_alpha()
-    self.image = pygame.transform.scale(tempImage, getSize(imgPath, sizeScaler))
+    self.image = pygame.transform.scale(tempImage, getSize(tempImage, sizeScaler))
 
     self.mask = pygame.mask.from_surface(self.image)
     self.rect = self.image.get_rect()
     self.rect.x, self.rect.y = coords
 
-  def update(self) -> None:
+  def draw(self) -> None:
     """
-    update Draws prite on a next frame, has to be called before display.update()
+    draw Draws prite on a next frame, has to be called before display.update()
     """
 
     window.blit(self.image, (self.rect.x, self.rect.y))
 
+  update = draw
 
-class Player(GameSprite):
+
+class Entity(GameSprite):
+  dead = False
+
   def __init__(
     self,
     coords: Union[tuple[float, float], list[float, float]] = (0, 0),
     sizeScaler: float = 1,
     imgPath: str = '',
-    # TODO: Add an ability to set vertical and horizontal speeds
-    speed: Union[Tuple, int] = 5
+    health: int = 100
   ) -> None:
     super().__init__(coords, sizeScaler, imgPath)
 
-    self.speed = speed
+    self.hp = health
 
-    # * Saves sprite speed for the next frame
-    self.velocity = pygame.math.Vector2(0, 0)
+  def die(self):
+    """
+    die Sets dead attr to True and prite won't be rendered anymore
+    """
 
-  def update(self) -> None:
-    # * Moving player if keys are pressed
-    self.velocity.xy = 0, 0
+    self.dead = True
 
-    keys = pygame.key.get_pressed()
-    if keys[K_LEFT] or keys[K_a]:
-      self.velocity.x = -self.speed
-    elif keys[K_RIGHT] or keys[K_d]:
-      self.velocity.x = self.speed
+  @property
+  def hp(self):
+    return self._hp
 
-    if keys[K_UP] or keys[K_w]:
-      self.velocity.y = -self.speed
-    elif keys[K_DOWN] or keys[K_s]:
-      self.velocity.y = self.speed
+  @hp.setter
+  def hp(self, value):
+    if value <= 0:
+      self.die()
+      self.kill()  # ~ removes sprite from all groups
+    else:
+      self._hp = value
 
-    # * Checking collisions
+  def checkCollisions(self) -> None:
+    # * Checking collisions for each collided object
     collisionList = pygame.sprite.spritecollide(
       self,
       collidingObjects,
@@ -97,50 +103,91 @@ class Player(GameSprite):
       pygame.sprite.collide_mask
     )
 
-    print(self.velocity)
-
     for gameObject in collisionList:
-      # * Getting absolute coordinates for our collision
-      collisionPoint = pygame.sprite.collide_mask(self, gameObject)
-      collision = pygame.math.Vector2(
-        self.rect.x + collisionPoint[0],
-        self.rect.y + collisionPoint[1]
-      )
+      objectRect = gameObject.rect
 
       # TODO: Make proper masks collision
-      # # * Top collision
-      # if (
-      #   self.velocity.y > 0 and
-      #   gameObject.rect.bottom - 10 > collision.y >= gameObject.rect.top
-      # ):
-      #   print('set ZERO')
-      #   self.velocity.y = 0
-      # # elif not self.acceleration.y > 0:
-      # #   self.acceleration.y = -1
+      # * Y collsions
+      if self.velocity.y > 0 and \
+          objectRect.top <= self.rect.bottom + self.speed < objectRect.bottom:
+        self.velocity.y = 0
+      if self.velocity.y < 0 and \
+          objectRect.bottom >= self.rect.top - self.speed > objectRect.top:
+        self.velocity.y = 0
 
-      # # * Bottom collision
-      # if (
-      #   self.velocity.y < 0 and
-      #   gameObject.rect.top + 10 < collision.y <= gameObject.rect.bottom
-      # ):
-      #   print('set ZERO')
-      #   self.velocity.y = 0
-      # # elif not self.acceleration.y:
-      # #   self.acceleration.y = 1
+      # * X collisions
+      if self.velocity.x > 0 and \
+          objectRect.left <= self.rect.right - self.speed < objectRect.right:
+        self.velocity.x = 0
+      if self.velocity.x < 0 and \
+          objectRect.right >= self.rect.left - self.speed > objectRect.left:
+        self.velocity.x = 0
 
-      # # * Left collision
-      # # if (
-      # #   self.velocity.x > 0 and
-      # #   gameObject.rect.right - 5 > collision.y >= gameObject.rect.left
-      # # ):
-      # #   print('set XX')
-      # #   self.velocity.x = 0
-      # # elif not self.acceleration.y > 0:
-      # #   self.acceleration.y = -1
-  
-    self.rect.topleft += self.velocity
 
-    super().update()
+class Player(Entity):
+  def __init__(
+    self,
+    coords: Union[tuple[float, float], list[float, float]] = (0, 0),
+    sizeScaler: float = 1,
+    imgPath: str = '',
+    # TODO: Add an ability to set vertical and horizontal speeds
+    speed: Union[Tuple, int] = 5,
+    health: int = 100
+  ) -> None:
+    super().__init__(coords, sizeScaler, imgPath, health)
+
+    self.rect = self.image.get_bounding_rect()
+    self.speed = speed
+
+    # * Saves sprite speed for the next frame
+    self.velocity = pygame.math.Vector2(0, 0)
+
+  def update(self) -> None:
+    if self.dead:
+      return
+
+    # * Moving player in 1 dirrection if keys are pressed
+    self.velocity.xy = 0, 0
+    keys = pygame.key.get_pressed()
+    pressed = {
+      'left': keys[K_LEFT] or keys[K_a],
+      'right': keys[K_RIGHT] or keys[K_d],
+      'up':  keys[K_UP] or keys[K_w],
+      'down': keys[K_DOWN] or keys[K_s]
+    }
+
+    # * Number of pressed keys for this frame
+    pressedKeys = len([key[1] for key in pressed.items() if key[1]])
+
+    # * 1 diretion movements
+    if pressedKeys == 1:
+      if pressed['left']:
+        self.velocity.x = -self.speed
+      elif pressed['right']:
+        self.velocity.x = self.speed
+
+      if pressed['up']:
+        self.velocity.y = -self.speed
+      elif pressed['down']:
+        self.velocity.y = self.speed
+
+    # * Diagonal movements
+    if pressedKeys >= 2:
+      diagonalSpeed = sqrt(self.speed ** 2 + self.speed ** 2) / 2
+      if pressed['left'] and pressed['up']:
+        self.velocity.xy = -diagonalSpeed, -diagonalSpeed
+      if pressed['left'] and pressed['down']:
+        self.velocity.xy = -diagonalSpeed, diagonalSpeed
+
+      if pressed['right'] and pressed['up']:
+        self.velocity.xy = diagonalSpeed, -diagonalSpeed
+      if pressed['right'] and pressed['down']:
+        self.velocity.xy = diagonalSpeed, diagonalSpeed
+
+    self.checkCollisions()
+    self.rect.move_ip(*self.velocity)
+
+    self.draw()
 
 
 class MapObject(GameSprite):
@@ -158,5 +205,3 @@ class MapObject(GameSprite):
     # * Adding object to a group, so we will be able to detect collisioins
     if collides:
       collidingObjects.add(self)
-    else:
-      notCollidingObjects.add(self)

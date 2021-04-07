@@ -15,7 +15,7 @@ clock = pygame.time.Clock()
 run = True
 
 # * Game sprites
-player = Player((0, 0), .5, 'survivor-idle_knife_0.png', 5)
+player = Player((0, 0), .5, 'survivor-idle_knife_0.png', 5, 100)
 wall = MapObject((200, 200), 1, 'walls.png', True)
 
 # ? Game loop
