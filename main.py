@@ -3,7 +3,7 @@ import pygame
 from config import colors
 
 import config as cfg
-from classes import Player, window, MapObject, collidingObjects
+from classes import Player, window, Entity, collidingObjects, Collider
 
 pygame.init()
 
@@ -15,8 +15,8 @@ clock = pygame.time.Clock()
 run = True
 
 # * Game sprites
-player = Player((0, 0), .5, 'survivor-idle_knife_0.png', 5, 100)
-wall = MapObject((200, 200), 1, 'walls.png', True)
+player = Player((0, 0), .5, 'survivor-idle_knife_0.png', 5, Collider((30, 20), (60, 75)), 100)
+wall = Entity((200, 200), 1, 'walls.png', Collider((0, 0)))
 
 # ? Game loop
 while run:

@@ -1,6 +1,6 @@
 # ? Import
-from typing import Tuple, Union
-from math import sqrt
+from typing import Tuple, Union, overload
+from math import atan2, degrees, sqrt
 
 import pygame
 from pygame.constants import K_LEFT, K_RIGHT, K_a, K_d, K_UP, K_DOWN, K_w, K_s
@@ -30,6 +30,17 @@ def getSize(image: object, multiplier: Union[int, float]) -> tuple[int, int]:
 
 
 # ? Classes
+# * Colliders
+# TODO: Make a collider really useful not just to replace it with get_bounding_rect in rotateCenter
+class Collider(pygame.Rect):
+  def __init__(
+    self,
+    relativeCoords: Union[tuple[float, float], list[float, float]] = (0, 0),
+    size:  Union[tuple[float, float], list[float, float]] = (0, 0)
+  ) -> None:
+    super().__init__(relativeCoords, size)
+
+
 class GameSprite(pygame.sprite.Sprite):
   def __init__(
     self,
@@ -38,17 +49,21 @@ class GameSprite(pygame.sprite.Sprite):
     sizeScaler: float = 1,
     imgPath: str = ''
   ) -> None:
-
     super().__init__()
 
     # * Adding ./images/ to the path to be able to pass a shorter path
     imgPath = './images/' + imgPath
 
     tempImage = pygame.image.load(imgPath).convert_alpha()
-    self.image = pygame.transform.scale(tempImage, getSize(tempImage, sizeScaler))
+    self.image = pygame.transform.scale(
+      tempImage,
+      getSize(tempImage, sizeScaler)
+    )
+
+    self.originalImage = self.image
 
     self.mask = pygame.mask.from_surface(self.image)
-    self.rect = self.image.get_rect()
+    self.rect = self.image.get_bounding_rect()
     self.rect.x, self.rect.y = coords
 
   def draw(self) -> None:
@@ -56,7 +71,46 @@ class GameSprite(pygame.sprite.Sprite):
     draw Draws prite on a next frame, has to be called before display.update()
     """
 
-    window.blit(self.image, (self.rect.x, self.rect.y))
+    window.blit(self.image, self.rect.topleft)
+
+  def rotateCenter(self, angle: int = 0) -> None:
+    """
+    rotateCenter Will rotate a sprite around center by a given angle (clockwise)
+
+    Args:
+        angle (int): An angle to rotate by
+    """
+
+    image = self.image
+    topLeft = self.rect.topleft
+
+    self.image = pygame.transform.rotate(self.originalImage, angle)
+    self.rect = self.image.get_rect(center=image.get_rect(topleft=topLeft).center)
+
+    # return image, new_rect
+
+    # surf.blit(rotated_image, new_rect.topleft)
+
+  # def drawWithoutBg(self):
+  #   tempRect = self.image.get_bounding_rect()
+  #   tempRect.x = self.x + 25
+  #   tempRect.y = self.y + 25
+
+    # x = int(tempRect.width/2)
+    # y = int(tempRect.height/2)
+
+    # window.blit(self.image, (tempRect.x, tempRect.y))
+
+  # * Making rect.x and y easier to access
+  @property
+  def x(self):
+    return self.rect.x
+
+  @property
+  def y(self):
+    return self.rect.y
+
+  # TODO: If will change posiotion using self.rect.x = expression and setters
 
   update = draw
 
@@ -69,11 +123,27 @@ class Entity(GameSprite):
     coords: Union[tuple[float, float], list[float, float]] = (0, 0),
     sizeScaler: float = 1,
     imgPath: str = '',
-    health: int = 100
+    collider: Collider = None,
+    health: int = 100,
+    drawCollider: bool = cfg.drawColliderBorders
   ) -> None:
     super().__init__(coords, sizeScaler, imgPath)
 
     self.hp = health
+    self.collider = collider
+    self.drawCollider = drawCollider
+
+    # * Adding object to a group, so we will be able to detect collisioins
+    if collider is not None:
+      collider = Collider()
+      collidingObjects.add(self)
+
+      if collider.width == 0:
+        collider.width = self.image.get_width()
+      if collider.height == 0:
+        collider.height = self.image.get_height()
+
+      self.collider = collider
 
   def die(self):
     """
@@ -81,6 +151,14 @@ class Entity(GameSprite):
     """
 
     self.dead = True
+
+  def draw(self):
+    if self.drawCollider:
+      pygame.draw.rect(window, (0, 255, 0), self.rect, 4)
+      pygame.draw.rect(window, (255, 0, 0), self.collider.move(self.rect.topleft), 4)
+    super().draw()
+
+  update = draw
 
   @property
   def hp(self):
@@ -94,33 +172,64 @@ class Entity(GameSprite):
     else:
       self._hp = value
 
+  def rotateCenter(self, angle: int = 0, spinCollider: bool = True) -> None:
+    """
+    rotateCenter Will rotate a sprite around center by a given angle (clockwise)
+    spins the collider is spinCollider set to True
+
+    Args:
+        angle (int): An angle to rotate by
+        spinCollider(bool): Set weather you want to spin the collide with the
+        image
+    """
+
+    super().rotateCenter(angle)
+    if spinCollider:
+      self.collider = self.image.get_bounding_rect()
+
   def checkCollisions(self) -> None:
+    """
+    checkCollisions Checks the collision with other object which are in the
+    colliding objects group and changes the self.velocity values
+    """
+
     # * Checking collisions for each collided object
-    collisionList = pygame.sprite.spritecollide(
-      self,
-      collidingObjects,
-      False,
-      pygame.sprite.collide_mask
-    )
+    collisionList = []
+
+    # * Creating a class object and setting its rect attribute to collider
+    # * so it will be really to use pygame fucntion to check collisions, because
+    # * it needs a sprite instead of a simple rect for some reason
+
+    # TODO: Make it more pythonic and avoiding pylint errors somehow
+    playerCollider = lambda: None
+    playerCollider.rect = self.collider.move(self.rect.topleft)
+
+    for sprite in collidingObjects:
+      colliderObject = lambda: None
+      colliderObject.rect = sprite.collider.move(sprite.rect.topleft)
+
+      if pygame.sprite.collide_rect(playerCollider, colliderObject):
+        collisionList.append(sprite)
 
     for gameObject in collisionList:
-      objectRect = gameObject.rect
+      objectCol = gameObject.collider.move(gameObject.rect.topleft)
+      collider = self.collider.move(self.rect.topleft)
 
-      # TODO: Make proper masks collision
+      # TODO: Make it's impossible to move through colliders by spinning and pressing a movement button
       # * Y collsions
       if self.velocity.y > 0 and \
-          objectRect.top <= self.rect.bottom + self.speed < objectRect.bottom:
+          objectCol.top <= collider.bottom + self.speed < objectCol.bottom:
         self.velocity.y = 0
       if self.velocity.y < 0 and \
-          objectRect.bottom >= self.rect.top - self.speed > objectRect.top:
+          objectCol.bottom >= collider.top - self.speed > objectCol.top:
         self.velocity.y = 0
 
       # * X collisions
       if self.velocity.x > 0 and \
-          objectRect.left <= self.rect.right - self.speed < objectRect.right:
+          objectCol.left <= collider.right - self.speed < objectCol.right:
         self.velocity.x = 0
       if self.velocity.x < 0 and \
-          objectRect.right >= self.rect.left - self.speed > objectRect.left:
+          objectCol.right >= collider.left - self.speed > objectCol.left:
         self.velocity.x = 0
 
 
@@ -132,9 +241,12 @@ class Player(Entity):
     imgPath: str = '',
     # TODO: Add an ability to set vertical and horizontal speeds
     speed: Union[Tuple, int] = 5,
+    collider: Collider = None,
     health: int = 100
   ) -> None:
-    super().__init__(coords, sizeScaler, imgPath, health)
+    super().__init__(coords, sizeScaler, imgPath, collider, health)
+
+    collidingObjects.remove(self)
 
     self.rect = self.image.get_bounding_rect()
     self.speed = speed
@@ -142,7 +254,23 @@ class Player(Entity):
     # * Saves sprite speed for the next frame
     self.velocity = pygame.math.Vector2(0, 0)
 
+  def lookAtMouse(self):
+    """
+    lookAtMouse Will rotate a player's sprite and rect to make it look
+    at the mouse
+    """
+
+    mouseX, mouseY = pygame.mouse.get_pos()
+    relativeX, relativeY = mouseX - (self.x + self.collider.x), mouseY - (self.y + self.collider.y)
+    angle = degrees(-atan2(relativeY, relativeX))
+
+    self.rotateCenter(angle - 15)
+
   def update(self) -> None:
+    """
+    update Will move a player and call all the needed methods
+    """
+
     if self.dead:
       return
 
@@ -184,24 +312,9 @@ class Player(Entity):
       if pressed['right'] and pressed['down']:
         self.velocity.xy = diagonalSpeed, diagonalSpeed
 
+    # * Cheking collisions and moving player based on corrected values
     self.checkCollisions()
     self.rect.move_ip(*self.velocity)
+    self.lookAtMouse()
 
     self.draw()
-
-
-class MapObject(GameSprite):
-  def __init__(
-    self,
-    coords: Union[tuple[float, float], list[float, float]] = (0, 0),
-    sizeScaler: float = 1,
-    imgPath: str = '',
-    collides: bool = True
-  ) -> None:
-    super().__init__(coords, sizeScaler, imgPath)
-
-    self.collides = collides
-
-    # * Adding object to a group, so we will be able to detect collisioins
-    if collides:
-      collidingObjects.add(self)
