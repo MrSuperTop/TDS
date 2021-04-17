@@ -1,9 +1,11 @@
-# ? Imports
 import pygame
-from config import colors
 
 import config as cfg
-from classes import Player, window, Entity, collidingObjects, Collider
+from config import window
+
+from sprites.collider import Collider
+from sprites.entity import Entity, collidingObjects
+from sprites.player import Player
 
 pygame.init()
 
@@ -15,20 +17,20 @@ clock = pygame.time.Clock()
 run = True
 
 # * Game sprites
-player = Player((0, 0), .5, 'survivor-idle_knife_0.png', 5, Collider((30, 20), (60, 75)), 100)
+player = Player((300, 300), .6, './knife/idle/survivor-idle_knife_0.png', 5, Collider((30, 20), (60, 75)), 100)
 wall = Entity((200, 200), 1, 'walls.png', Collider((0, 0)))
 
 # ? Game loop
 while run:
-  window.fill(colors['white'])
+  window.fill(cfg.colors['white'])
 
   # * Checking if the user has presse Exit button
   for event in pygame.event.get():
     if event.type == pygame.QUIT:
       run = False
 
-  collidingObjects.update()
-  player.update()
+  collidingObjects.update(window)
+  player.update(window)
 
   pygame.display.flip()
   clock.tick(cfg.FPS)
