@@ -8,6 +8,7 @@ from config import FPS, window
 from sprites.collider import Collider
 from sprites.game_sprite import GameSprite, getSize
 
+
 # * Groups
 collidingObjects = pygame.sprite.Group()
 
@@ -17,14 +18,15 @@ class Entity(GameSprite):
 
   def __init__(
     self,
+    camera: object,
     coords: Union[tuple[float, float], list[float, float]] = (0, 0),
     sizeScaler: float = 1,
     imgPath: str = '',
     collider: Collider = None,
     health: int = 100,
-    drawCollider: bool = cfg.drawColliderBorders
+    drawCollider: bool = cfg.drawColliderBorders,
   ) -> None:
-    super().__init__(coords, sizeScaler, imgPath)
+    super().__init__(camera, coords, sizeScaler, imgPath)
 
     self.hp = health
     self.collider = collider
@@ -41,8 +43,11 @@ class Entity(GameSprite):
         collider.height = self.image.get_height()
 
       self.collider = collider
+
+    # * Stuff to position the sprite correctly on the first frame
+    self.startPosition = self.rect.topleft
   
-  # TODO: Make an ability to set animations throught the GameSprite class for every sprite in the game
+    # TODO: Make an ability to set animations throught the GameSprite class for every sprite in the game
     # * Animations
     self.animations = {}
     self.animationFrames = {}
@@ -109,19 +114,21 @@ class Entity(GameSprite):
 
     self.dead = True
 
-  def draw(self, surface: pygame.Surface):
+  def draw(self):
     """
     draw Will draw the sprite on the screen. If drawColliderBorders is enabled
     will also draw sprites rect and collider.
 
     Args:
         surface (pygame.Surface): [description]
-    """    
+    """
 
     if self.drawCollider:
       pygame.draw.rect(window, (0, 255, 0), self.rect, 4)
       pygame.draw.rect(window, (255, 0, 0), self.collider.move(self.rect.topleft), 4)
-    super().draw(surface)
+    if self.camera is not None:
+      self.rect.x, self.rect.y = self.startPosition[0] - self.camera.offset.x, self.startPosition[1] - self.camera.offset.y
+    super().draw()
 
   update = draw
 
