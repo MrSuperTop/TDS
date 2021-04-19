@@ -50,12 +50,9 @@ class Entity(GameSprite):
     # TODO: Make an ability to set animations throught the GameSprite class for every sprite in the game
     # * Animations
     self.animations = {}
+    self.startingFrames = {}
     self.animationFrames = {}
     self.frame = 0  # ~ stores current frame number
-    self._animation = 'idle' # ~ animation name
-
-    self.loadAnimation('knife/move', 20)
-    self.loadAnimation('knife/idle', 10)
 
   @property
   def animation(self) -> str:
@@ -65,9 +62,9 @@ class Entity(GameSprite):
   def animation(self, newValue: str) -> None:
     if newValue != self._animation:
       self._animation = newValue
-      self.frame = 0
+      self.frame = self.startingFrames[newValue]
 
-  def loadAnimation(self, folderPath: str, frameRate: int):
+  def loadAnimation(self, folderPath: str, frame_id: str, frameRate: int, startFrame: int = 0):
     folderPath = 'images/' + folderPath
     numberOfFrames = len([item for item in os.listdir(folderPath)])
     framesDuration = [int(FPS / frameRate)] * numberOfFrames
@@ -77,7 +74,7 @@ class Entity(GameSprite):
     self.animationsFrameData = []
 
     for i, frame in enumerate(framesDuration):
-      frameId = f'{weaponName}_{animationName}_{i}'
+      frameId = f'{frame_id}_{i}'
       imagePath = f'{folderPath}/survivor-{animationName}_{weaponName}_{i}.png'
       image = pygame.image.load(imagePath).convert_alpha()
       self.animationFrames[frameId] = image.copy()
@@ -85,14 +82,10 @@ class Entity(GameSprite):
       for i in range(frame):
         self.animationsFrameData.append(frameId)
 
-    self.animations[animationName] = self.animationsFrameData
+    self.animations[frame_id] = self.animationsFrameData
+    self.startingFrames[frame_id] = startFrame
 
   def nextFrame(self):
-    if self.velocity == (0, 0):
-      self.animation = 'idle'
-    else:
-      self.animation = 'move'
-
     self.frame += 1
     frameIds = self.animations[self.animation]
 

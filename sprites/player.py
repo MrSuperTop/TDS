@@ -2,12 +2,13 @@ from math import atan2, degrees, sqrt
 from typing import Union
 
 import pygame
-from pygame.constants import K_DOWN, K_LEFT, K_RIGHT, K_UP, K_a, K_d, K_s, K_w
+from config import windowSize
+from pygame.constants import (K_1, K_3, K_DOWN, K_LEFT, K_RIGHT, K_UP, K_a,
+                              K_d, K_s, K_w)
 from pygame.math import Vector2
 
-from config import windowSize
-from sprites.entity import Entity, collidingObjects
 from sprites.collider import Collider
+from sprites.entity import Entity, collidingObjects
 
 
 class Player(Entity):
@@ -34,6 +35,24 @@ class Player(Entity):
     # * Saves sprite speed for the next frame
     self.velocity = pygame.math.Vector2(0, 0)
 
+    # * Weapons
+    self.weaponName = 'knife'
+    self.weaponsList = []
+
+    # * Loading animations
+    self._animation = 'knife_idle' # ~ animation name
+    self.loadAnimation('knife/idle', 'knife_idle', 20)
+    self.loadAnimation('knife/move', 'knife_move', 20, 9)
+    self.loadAnimation('rifle/idle', 'rifle_idle', 20)
+    self.loadAnimation('rifle/move', 'rifle_move', 10)
+
+  def nextFrame(self):
+    if self.velocity == (0, 0):
+      self.animation = f'{self.weaponName}_idle'
+    else:
+      self.animation = f'{self.weaponName}_move'
+
+    super().nextFrame()
 
   def lookAtMouse(self):
     """
@@ -42,20 +61,12 @@ class Player(Entity):
     """
 
     mouseX, mouseY = pygame.mouse.get_pos()
-    relativeX, relativeY = mouseX - (self.x + self.collider.x), mouseY - (self.y + self.collider.y)
+    relativeX, relativeY = mouseX - (self.x + self.collider.centerx), mouseY - (self.y + self.collider.centery)
     angle = degrees(-atan2(relativeY, relativeX))
 
-    self.rotateCenter(angle)
+    self.rotateCenter(angle + 5)
 
-  def update(self, surface: pygame.Surface) -> None:
-    """
-    update Will move a player and call all the needed methods
-    """
-
-    if self.dead:
-      return
-
-    # * Moving player in 1 dirrection if keys are pressed
+  def move(self):
     self.velocity.xy = 0, 0
     keys = pygame.key.get_pressed()
     pressed = {
@@ -83,7 +94,6 @@ class Player(Entity):
     # * Diagonal movements
     if pressedKeys >= 2:
       diagonalSpeed = sqrt(self.speed ** 2 + self.speed ** 2) * 2 / 3
-      # diagonalSpeed = self.speed
       if pressed['left'] and pressed['up']:
         self.velocity.xy = -diagonalSpeed, -diagonalSpeed
       if pressed['left'] and pressed['down']:
@@ -94,9 +104,31 @@ class Player(Entity):
       if pressed['right'] and pressed['down']:
         self.velocity.xy = diagonalSpeed, diagonalSpeed
 
+  def weaponChange(self):
+    keys = pygame.key.get_pressed()
+    pressed = {
+      'main': keys[K_1],
+      'secondary': keys[K_3],
+    }
+
+    if pressed['main']:
+      self.weaponName = 'rifle'
+    if pressed['secondary']:
+      self.weaponName = 'knife'
+
+  def update(self, surface: pygame.Surface) -> None:
+    """
+    update Will move a player and call all the needed methods
+    """
+
+    if self.dead:
+      return
+
+    self.move()
+    self.weaponChange()
+
     # * Cheking collisions and moving player based on corrected values
     self.checkCollisions()
-    # self.rect.move_ip(*self.velocity)
     self.staticPosition += self.velocity
 
     self.nextFrame()

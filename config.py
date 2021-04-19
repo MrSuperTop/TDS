@@ -3,7 +3,7 @@ import pygame
 # * Settings
 windowSize = (1200, 720)
 FPS = 60
-drawColliderBorders = False
+drawColliderBorders = True
 
 # * Constants
 colors = {
