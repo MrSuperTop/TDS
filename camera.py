@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 class Camera():
   """
   Camera All the info needed to blit sprite with a shift will be got from here
-  """  
+  """
 
   def __init__(
     self,

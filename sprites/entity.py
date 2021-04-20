@@ -1,8 +1,10 @@
 import os
 from typing import Union
+from math import atan2, degrees
 
-import config as cfg
+import config
 import pygame
+from pygame.math import Vector2
 from config import FPS, window
 
 from sprites.collider import Collider
@@ -19,18 +21,18 @@ class Entity(GameSprite):
   def __init__(
     self,
     camera: object,
+    static: bool,
     coords: Union[tuple[float, float], list[float, float]] = (0, 0),
     sizeScaler: float = 1,
     imgPath: str = '',
     collider: Collider = None,
-    health: int = 100,
-    drawCollider: bool = cfg.drawColliderBorders,
   ) -> None:
     super().__init__(camera, coords, sizeScaler, imgPath)
 
-    self.hp = health
+    self.velocity = Vector2(0, 0)
+    self.static = static
+
     self.collider = collider
-    self.drawCollider = drawCollider
 
     # * Adding object to a group, so we will be able to detect collisioins
     if collider is not None:
@@ -64,7 +66,8 @@ class Entity(GameSprite):
       self._animation = newValue
       self.frame = self.startingFrames[newValue]
 
-  def loadAnimation(self, folderPath: str, frame_id: str, frameRate: int, startFrame: int = 0):
+  def loadAnimation(self, folderPath: str, frameRate: int, startFrame: int = 0):
+    frameName = '_'.join(folderPath.split('/'))
     folderPath = 'images/' + folderPath
     numberOfFrames = len([item for item in os.listdir(folderPath)])
     framesDuration = [int(FPS / frameRate)] * numberOfFrames
@@ -74,7 +77,7 @@ class Entity(GameSprite):
     self.animationsFrameData = []
 
     for i, frame in enumerate(framesDuration):
-      frameId = f'{frame_id}_{i}'
+      frameId = f'{frameName}_{i}'
       imagePath = f'{folderPath}/survivor-{animationName}_{weaponName}_{i}.png'
       image = pygame.image.load(imagePath).convert_alpha()
       self.animationFrames[frameId] = image.copy()
@@ -82,8 +85,8 @@ class Entity(GameSprite):
       for i in range(frame):
         self.animationsFrameData.append(frameId)
 
-    self.animations[frame_id] = self.animationsFrameData
-    self.startingFrames[frame_id] = startFrame
+    self.animations[frameName] = self.animationsFrameData
+    self.startingFrames[frameName] = startFrame
 
   def nextFrame(self):
     self.frame += 1
@@ -100,13 +103,6 @@ class Entity(GameSprite):
       getSize(nextFrame, self.imageScale)
     )
 
-  def die(self):
-    """
-    die Sets dead attr to True and prite won't be rendered anymore
-    """
-
-    self.dead = True
-
   def draw(self):
     """
     draw Will draw the sprite on the screen. If drawColliderBorders is enabled
@@ -116,26 +112,31 @@ class Entity(GameSprite):
         surface (pygame.Surface): [description]
     """
 
-    if self.drawCollider:
+    if config.drawColliderBorders:
       pygame.draw.rect(window, (0, 255, 0), self.rect, 4)
       pygame.draw.rect(window, (255, 0, 0), self.collider.move(self.rect.topleft), 4)
-    if self.camera is not None:
+    if not self.static:
       self.rect.x, self.rect.y = self.startPosition[0] - self.camera.offset.x, self.startPosition[1] - self.camera.offset.y
     super().draw()
 
-  update = draw
+  def update(self):
+    if not self.static:
+      self.rect.move_ip(*self.velocity)
+    self.draw()
 
-  @property
-  def hp(self):
-    return self._hp
+  def lookAtMouse(self, shift=0):
+    """
+    lookAtMouse Will rotate a player's sprite and rect to make it look
+    at the mouse
+    """
 
-  @hp.setter
-  def hp(self, value):
-    if value <= 0:
-      self.die()
-      self.kill()  # ~ removes sprite from all groups
-    else:
-      self._hp = value
+    mouseX, mouseY = pygame.mouse.get_pos()
+    relativeX, relativeY = mouseX - (self.rect.centerx + self.collider.centerx), mouseY - (self.y + self.collider.centery)
+    angle = degrees(-atan2(relativeY, relativeX)) + shift
+
+    self.rotateCenter(angle)
+
+    return angle
 
   def rotateCenter(self, angle: int = 0, spinCollider: bool = True) -> None:
     """
