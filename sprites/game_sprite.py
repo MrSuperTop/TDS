@@ -64,7 +64,7 @@ class GameSprite(pygame.sprite.Sprite):
 
   update = draw
 
-  def rotateCenter(self, angle: int = 0) -> None:
+  def rotateCenter(self, angle: int = 0, spinRect = True) -> None:
     """
     rotateCenter Will rotate a sprite around center by a given angle (clockwise)
 
@@ -74,7 +74,8 @@ class GameSprite(pygame.sprite.Sprite):
 
     oldImage = self.image
     self.image = pygame.transform.rotate(self.originalImage, angle)
-    self.rect = self.image.get_rect(center=oldImage.get_rect(topleft=self.rect.topleft).center)
+    if spinRect:
+      self.rect = self.image.get_rect(center=oldImage.get_rect(topleft=self.rect.topleft).center)
 
   # * Making rect.x and y easier to access
   @property

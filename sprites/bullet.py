@@ -6,6 +6,7 @@ from pygame.math import Vector2
 
 from sprites.collider import Collider
 from sprites.entity import Entity
+import config
 
 class Bullet(Entity):
   def __init__(
@@ -14,25 +15,27 @@ class Bullet(Entity):
     sizeScaler: float,
     imgPath: str,
     damage: int = 100,
-    playerRect: pygame.Rect = None
+    player: object = None,
+    killAfter: int = 1
   ) -> None:
-    super().__init__(camera, True, playerRect.center, sizeScaler=sizeScaler, imgPath=imgPath, collider=Collider())
+    super().__init__(camera, True, player.pivot.center, sizeScaler=sizeScaler, imgPath=imgPath, collider=Collider())
 
     self.damage = damage
-    self.speed = 20
-    # self.rect = self.image.get_rect(center=playerRect.center)
+    self.speed = 5
+    self.existsFor = 0
+    self.killAfter = killAfter
 
-    # self.rotateCenter(angle, True)
     angle = -self.lookAtMouse(-90)
-
-    # self.pos = Vector2(playerRect.center)
-    offset = Vector2(25, -45).rotate(angle)
-    # Use the offset to change the starting position.
-    self.pos = Vector2(playerRect.center) + offset
+  
+    self.pos = Vector2(player.pivot.center)
     self.velocity = Vector2([-self.speed] * 2)
-    self.velocity.rotate_ip(angle + 35)
+    self.velocity.rotate_ip(angle + 45)
 
   def update(self):
     self.pos += self.velocity
-    self.rect.center = self.pos
+    self.rect.topleft = self.pos
     self.draw()
+    self.existsFor += 1
+
+    if self.existsFor > self.killAfter * config.FPS:
+      self.kill()

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from math import sqrt
 from time import time
 from typing import Union
@@ -14,6 +15,27 @@ from sprites.bullet import Bullet
 from sprites.collider import Collider
 from sprites.entity import Entity, collidingObjects
 
+
+@dataclass
+class Pivot:
+  def __init__(self, surface, rect, shift):
+    self.surface = surface
+    self.originalSurface = surface
+    self.rect = rect
+    self.startPosition = rect.center
+
+    self.shift = shift
+
+  @property
+  def center(self):
+    return self.rect.center
+
+  @center.setter
+  def center(self, newValue):
+    self.rect.center = newValue
+
+  def __repr__(self):
+    return self.surface
 
 class Player(Entity):
   def __init__(
@@ -44,7 +66,9 @@ class Player(Entity):
     self.weaponName = 'knife'
     self.weaponIndex = 2
     self.weaponsList = ['rifle', 'handgun', 'knife']
+
     self.lastChangeTime = 0
+    self.lastShot = 0
 
     # * Loading animations
     self._animation = 'knife_idle' # ~ animation name
@@ -54,6 +78,12 @@ class Player(Entity):
     self.loadAnimation('rifle/move', 10)
     self.loadAnimation('handgun/idle', 20)
     self.loadAnimation('handgun/move', 10)
+
+    # * Rotation pivot
+    pivotSurface = pygame.Surface((5, 5))
+    pivotRect = pivotSurface.fill((255, 0, 0))
+    self.pivot = Pivot(pivotSurface, pivotRect, (0, 5))
+    self.pivot.center = pivotRect.center
 
     # * Health
     self.hp = health
@@ -141,8 +171,9 @@ class Player(Entity):
 
   def shoot(self):
     buttons = pygame.mouse.get_pressed()
-    if buttons[0]:
-      Bullet(self.camera, .075, 'bullet', playerRect=self.rect)
+    if buttons[0] and time() - self.lastShot > config.weaponShootingDelay:
+      Bullet(self.camera, .075, 'bullet', player=self, killAfter=3)
+      self.lastShot = time()
       # Bullet(self.camera, pygame.mouse.get_pos(), self.angle)
 
   @property
@@ -164,6 +195,12 @@ class Player(Entity):
     self.kill()
     self.dead = True
 
+  def lookAtMouse(self):
+    angle = super().lookAtMouse()
+
+    self.pivot.surface = pygame.transform.rotate(self.pivot.originalSurface, angle)
+    self.pivot.rect.bottomleft = self.rect.centerx + self.pivot.startPosition[0], self.rect.centery + self.pivot.startPosition[1]
+
   def update(self, event) -> None:
     """
     update Will move a player and call all the needed methods
@@ -184,3 +221,4 @@ class Player(Entity):
     self.lookAtMouse()
 
     self.draw()
+    self.surface.blit(self.pivot.surface, self.pivot.rect)

@@ -3,8 +3,9 @@ import pygame
 # * Settings
 windowSize = (1200, 720)
 FPS = 60
-drawColliderBorders = False
+drawColliderBorders = True
 weaponChangeDelay = 0.5  # ~ Time in second which sets how often you can change the weapon
+weaponShootingDelay = 0.1
 
 # * Constants
 colors = {

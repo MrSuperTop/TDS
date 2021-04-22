@@ -124,21 +124,21 @@ class Entity(GameSprite):
       self.rect.move_ip(*self.velocity)
     self.draw()
 
-  def lookAtMouse(self, shift=0):
+  def lookAtMouse(self, shift = 0, updateRect = True):
     """
     lookAtMouse Will rotate a player's sprite and rect to make it look
     at the mouse
     """
 
     mouseX, mouseY = pygame.mouse.get_pos()
-    relativeX, relativeY = mouseX - (self.rect.centerx + self.collider.centerx), mouseY - (self.y + self.collider.centery)
+    relativeX, relativeY = mouseX - (self.rect.centerx), mouseY - (self.rect.centery)
     angle = degrees(-atan2(relativeY, relativeX)) + shift
 
-    self.rotateCenter(angle)
+    self.rotateCenter(angle, True, updateRect)
 
     return angle
 
-  def rotateCenter(self, angle: int = 0, spinCollider: bool = True) -> None:
+  def rotateCenter(self, angle: int = 0, spinCollider: bool = True, spinRect: bool = True) -> None:
     """
     rotateCenter Will rotate a sprite around center by a given angle (clockwise)
     spins the collider is spinCollider set to True
@@ -149,7 +149,7 @@ class Entity(GameSprite):
         image
     """
 
-    super().rotateCenter(angle)
+    super().rotateCenter(angle, spinRect)
     if spinCollider:
       self.collider = self.image.get_bounding_rect()
 
