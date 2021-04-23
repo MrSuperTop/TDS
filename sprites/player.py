@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from math import sqrt
+from math import sqrt, cos, sin, radians
 from time import time
 from typing import Union
 
@@ -16,15 +16,16 @@ from sprites.collider import Collider
 from sprites.entity import Entity, collidingObjects
 
 
-@dataclass
-class Pivot:
-  def __init__(self, surface, rect, shift):
-    self.surface = surface
-    self.originalSurface = surface
-    self.rect = rect
-    self.startPosition = rect.center
 
-    self.shift = shift
+class ShottingPoint:
+  def __init__(self, player, surface, rect, offset):
+    self.player = player
+
+    self.surface = surface
+    self.rect = rect
+    self.startPosition = rect.centerx + offset[0], rect.centery + offset[1]
+
+    self.offset = Vector2(offset)
 
   @property
   def center(self):
@@ -34,8 +35,20 @@ class Pivot:
   def center(self, newValue):
     self.rect.center = newValue
 
+  @property
+  def globalRect(self):
+    return self.player.rect.move(self.startPosition).move(self.offset)
+
   def __repr__(self):
     return self.surface
+
+@dataclass
+class Weapon:
+  name: str
+  canShoot: bool
+  shottingDelay: int = 0
+  toTheEnd: float = 0
+  shiftAngle: float = 0
 
 class Player(Entity):
   def __init__(
@@ -65,13 +78,17 @@ class Player(Entity):
     # * Weapons change
     self.weaponName = 'knife'
     self.weaponIndex = 2
-    self.weaponsList = ['rifle', 'handgun', 'knife']
+    self.weaponsList = [
+      Weapon('rifle', True, 0.1, 80, -15),
+      Weapon('handgun', True, 0.25, 75, -25),
+      Weapon('knife', False)
+    ]
 
     self.lastChangeTime = 0
     self.lastShot = 0
 
     # * Loading animations
-    self._animation = 'knife_idle' # ~ animation name
+    self._animation = 'knife_idle'  # ~ Default animation name
     self.loadAnimation('knife/idle', 20)
     self.loadAnimation('knife/move', 20, 9)
     self.loadAnimation('rifle/idle', 20)
@@ -80,13 +97,17 @@ class Player(Entity):
     self.loadAnimation('handgun/move', 10)
 
     # * Rotation pivot
-    pivotSurface = pygame.Surface((5, 5))
+    pivotSurface = pygame.Surface((15, 15))
     pivotRect = pivotSurface.fill((255, 0, 0))
-    self.pivot = Pivot(pivotSurface, pivotRect, (0, 5))
-    self.pivot.center = pivotRect.center
+    self.pivot = ShottingPoint(self, pivotSurface, pivotRect, (0, 0))
+    self.pivot.center = self.pivot.globalRect.center
 
     # * Health
     self.hp = health
+
+  @property
+  def currentWeapon(self):
+    return self.weaponsList[self.weaponIndex]
 
   def nextFrame(self):
     if self.velocity == (0, 0):
@@ -163,7 +184,7 @@ class Player(Entity):
     elif self.weaponIndex < 0:
       self.weaponIndex = len(self.weaponsList) - 1
 
-    newName = self.weaponsList[self.weaponIndex]
+    newName = self.weaponsList[self.weaponIndex].name
     if newName != self.weaponName:
       self.lastChangeTime = time()
 
@@ -171,10 +192,10 @@ class Player(Entity):
 
   def shoot(self):
     buttons = pygame.mouse.get_pressed()
-    if buttons[0] and time() - self.lastShot > config.weaponShootingDelay:
+    currentWeapon = self.currentWeapon
+    if buttons[0] and time() - self.lastShot > currentWeapon.shottingDelay and currentWeapon.canShoot:
       Bullet(self.camera, .075, 'bullet', player=self, killAfter=3)
       self.lastShot = time()
-      # Bullet(self.camera, pygame.mouse.get_pos(), self.angle)
 
   @property
   def hp(self):
@@ -197,9 +218,16 @@ class Player(Entity):
 
   def lookAtMouse(self):
     angle = super().lookAtMouse()
+    x, y = self.rect.center
+    c = self.currentWeapon.toTheEnd
 
-    self.pivot.surface = pygame.transform.rotate(self.pivot.originalSurface, angle)
-    self.pivot.rect.bottomleft = self.rect.centerx + self.pivot.startPosition[0], self.rect.centery + self.pivot.startPosition[1]
+    radAngle = -radians(angle + self.currentWeapon.shiftAngle)
+    self.pivot.center = x + c * cos(radAngle), y + c * sin(radAngle)
+
+  def draw(self):
+    super().draw()
+    if config.drawColliderBorders:
+      self.surface.blit(self.pivot.surface, self.pivot.center)
 
   def update(self, event) -> None:
     """
@@ -221,4 +249,4 @@ class Player(Entity):
     self.lookAtMouse()
 
     self.draw()
-    self.surface.blit(self.pivot.surface, self.pivot.rect)
+

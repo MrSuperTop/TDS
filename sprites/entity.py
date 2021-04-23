@@ -48,6 +48,7 @@ class Entity(GameSprite):
 
     # * Stuff to position the sprite correctly on the first frame
     self.startPosition = self.rect.topleft
+    self.angle = 0
   
     # TODO: Make an ability to set animations throught the GameSprite class for every sprite in the game
     # * Animations
@@ -124,19 +125,19 @@ class Entity(GameSprite):
       self.rect.move_ip(*self.velocity)
     self.draw()
 
-  def lookAtMouse(self, shift = 0, updateRect = True):
+  def lookAtMouse(self, angleShift = 0, updateRect = True):
     """
     lookAtMouse Will rotate a player's sprite and rect to make it look
     at the mouse
     """
 
-    mouseX, mouseY = pygame.mouse.get_pos()
-    relativeX, relativeY = mouseX - (self.rect.centerx), mouseY - (self.rect.centery)
-    angle = degrees(-atan2(relativeY, relativeX)) + shift
+    mouse = Vector2(pygame.mouse.get_pos())
+    relativeX, relativeY = mouse - self.rect.center
+    self.angle = degrees(-atan2(relativeY, relativeX)) + angleShift
 
-    self.rotateCenter(angle, True, updateRect)
+    self.rotateCenter(self.angle, True, updateRect)
 
-    return angle
+    return self.angle
 
   def rotateCenter(self, angle: int = 0, spinCollider: bool = True, spinRect: bool = True) -> None:
     """
