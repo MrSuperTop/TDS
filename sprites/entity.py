@@ -31,7 +31,6 @@ class Entity(GameSprite):
 
     self.velocity = Vector2(0, 0)
     self.static = static
-
     self.collider = collider
 
     # * Adding object to a group, so we will be able to detect collisioins
@@ -56,6 +55,7 @@ class Entity(GameSprite):
     self.startingFrames = {}
     self.animationFrames = {}
     self.frame = 0  # ~ stores current frame number
+    self.animationLock = 0  # ~ Allows to set a number of frames for which animation won't change
 
   @property
   def animation(self) -> str:
@@ -63,7 +63,7 @@ class Entity(GameSprite):
 
   @animation.setter
   def animation(self, newValue: str) -> None:
-    if newValue != self._animation:
+    if newValue != self._animation and self.animationLock == 0:
       self._animation = newValue
       self.frame = self.startingFrames[newValue]
 
@@ -90,6 +90,9 @@ class Entity(GameSprite):
     self.startingFrames[frameName] = startFrame
 
   def nextFrame(self):
+    if self.animationLock > 0:
+      self.animationLock -= 1
+
     self.frame += 1
     frameIds = self.animations[self.animation]
 

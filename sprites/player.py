@@ -93,8 +93,10 @@ class Player(Entity):
     self.loadAnimation('knife/move', 20, 9)
     self.loadAnimation('rifle/idle', 20)
     self.loadAnimation('rifle/move', 10)
+    self.loadAnimation('rifle/shoot', 20)
     self.loadAnimation('handgun/idle', 20)
     self.loadAnimation('handgun/move', 10)
+    self.loadAnimation('handgun/shoot', 20)
 
     # * Rotation pivot
     pivotSurface = pygame.Surface((15, 15))
@@ -106,14 +108,25 @@ class Player(Entity):
     self.hp = health
 
   @property
-  def currentWeapon(self):
+  def weapon(self):
     return self.weaponsList[self.weaponIndex]
+
+  @property
+  def animation(self):
+    return self._animation
+
+  @animation.setter
+  def animation(self, animationType: str) -> None:
+    fullName = f'{self.weapon.name}_{animationType}'
+    if fullName != self._animation and self.animationLock == 0:
+      self._animation = fullName
+      self.frame = self.startingFrames[fullName]
 
   def nextFrame(self):
     if self.velocity == (0, 0):
-      self.animation = f'{self.weaponName}_idle'
+      self.animation = 'idle'
     else:
-      self.animation = f'{self.weaponName}_move'
+      self.animation = 'move'
 
     super().nextFrame()
 
@@ -192,10 +205,12 @@ class Player(Entity):
 
   def shoot(self):
     buttons = pygame.mouse.get_pressed()
-    currentWeapon = self.currentWeapon
+    currentWeapon = self.weapon
     if buttons[0] and time() - self.lastShot > currentWeapon.shottingDelay and currentWeapon.canShoot:
       Bullet(self.camera, .075, 'bullet', player=self, killAfter=3)
       self.lastShot = time()
+      self.animation = 'shoot'
+      self.animationLock = config.FPS / 20 * 3
 
   @property
   def hp(self):
@@ -219,9 +234,9 @@ class Player(Entity):
   def lookAtMouse(self):
     angle = super().lookAtMouse()
     x, y = self.rect.center
-    c = self.currentWeapon.toTheEnd
+    c = self.weapon.toTheEnd
 
-    radAngle = -radians(angle + self.currentWeapon.shiftAngle)
+    radAngle = -radians(angle + self.weapon.shiftAngle)
     self.pivot.center = x + c * cos(radAngle), y + c * sin(radAngle)
 
   def draw(self):
