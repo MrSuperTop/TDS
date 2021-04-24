@@ -49,6 +49,11 @@ class Weapon:
   shottingDelay: int = 0
   toTheEnd: float = 0
   shiftAngle: float = 0
+  magCapacity: int = 0
+  reloadDuration: int = 0
+
+  def __post_init__(self):
+    self.ammo = self.magCapacity
 
 class Player(Entity):
   def __init__(
@@ -79,9 +84,15 @@ class Player(Entity):
     self.weaponName = 'knife'
     self.weaponIndex = 2
     self.weaponsList = [
-      Weapon('rifle', True, 0.1, 80, -15),
-      Weapon('handgun', True, 0.25, 75, -25),
+      Weapon('rifle', True, 0.1, 80, -15, 30, 1),
+      Weapon('handgun', True, 0.25, 75, -25, 15, .75),
       Weapon('knife', False)
+    ]
+
+    framerates = [
+      [[10, 0], [20, 0], [20, 0], [20, 0]],
+      [[10, 0], [20, 0], [20, 0], [20, 0]],
+      [[10, 0], [20, 0]],
     ]
 
     self.lastChangeTime = 0
@@ -89,14 +100,22 @@ class Player(Entity):
 
     # * Loading animations
     self._animation = 'knife_idle'  # ~ Default animation name
-    self.loadAnimation('knife/idle', 20)
-    self.loadAnimation('knife/move', 20, 9)
-    self.loadAnimation('rifle/idle', 20)
-    self.loadAnimation('rifle/move', 10)
-    self.loadAnimation('rifle/shoot', 20)
-    self.loadAnimation('handgun/idle', 20)
-    self.loadAnimation('handgun/move', 10)
-    self.loadAnimation('handgun/shoot', 20)
+    for i, weapon in enumerate(self.weaponsList):
+      self.loadAnimation(f'{weapon.name}/idle', *framerates[i][0])
+      self.loadAnimation(f'{weapon.name}/move', *framerates[i][1])
+      if weapon.canShoot:
+        self.loadAnimation(f'{weapon.name}/shoot', *framerates[i][2])
+        self.loadAnimation(f'{weapon.name}/reload', *framerates[i][3])
+
+
+    # self.loadAnimation('knife/idle', 10)
+    # self.loadAnimation('knife/move', 20, 9)
+    # self.loadAnimation('rifle/idle', 10)
+    # self.loadAnimation('rifle/move', 20)
+    # self.loadAnimation('rifle/shoot', 20)
+    # self.loadAnimation('handgun/idle', 10)
+    # self.loadAnimation('handgun/move', 20)
+    # self.loadAnimation('handgun/shoot', 20)
 
     # * Rotation pivot
     pivotSurface = pygame.Surface((15, 15))
@@ -106,6 +125,10 @@ class Player(Entity):
 
     # * Health
     self.hp = health
+
+    # * Ammo system
+    self.reloading = False
+    self.reloadStarted = 0
 
   @property
   def weapon(self):
@@ -118,7 +141,7 @@ class Player(Entity):
   @animation.setter
   def animation(self, animationType: str) -> None:
     fullName = f'{self.weapon.name}_{animationType}'
-    if fullName != self._animation and self.animationLock == 0:
+    if fullName != self._animation and not self.animationLock:
       self._animation = fullName
       self.frame = self.startingFrames[fullName]
 
@@ -203,14 +226,34 @@ class Player(Entity):
 
     self.weaponName = newName
 
+  def reload(self):
+    self.reloading = True
+    self.reloadStarted = time()
+    self.animationLock = False
+    self.animation = 'reload'
+    self.animationLock = True
+
   def shoot(self):
+    if self.reloading and time() - self.reloadStarted > self.weapon.reloadDuration:
+      self.reloading = False
+      self.animationLock = False
+      self.weapon.ammo = self.weapon.magCapacity
+
+    if self.reloading:
+      return
+
     buttons = pygame.mouse.get_pressed()
-    currentWeapon = self.weapon
-    if buttons[0] and time() - self.lastShot > currentWeapon.shottingDelay and currentWeapon.canShoot:
+    canShootNow = time() - self.lastShot > self.weapon.shottingDelay
+
+    if buttons[0] and canShootNow and self.weapon.ammo > 0:
       Bullet(self.camera, .075, 'bullet', player=self, killAfter=3)
       self.lastShot = time()
       self.animation = 'shoot'
-      self.animationLock = config.FPS / 20 * 3
+      self.lockedFrames = config.FPS / 20 * 3
+      self.weapon.ammo -= 1
+    elif self.weapon.ammo <= 0:
+      self.reload()
+
 
   @property
   def hp(self):
@@ -254,7 +297,9 @@ class Player(Entity):
 
     self.move()
     self.weaponChange(event)
-    self.shoot()
+
+    if self.weapon.canShoot:
+      self.shoot()
 
     # * Cheking collisions and moving player based on corrected values
     self.checkCollisions()

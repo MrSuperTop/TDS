@@ -55,7 +55,33 @@ class Entity(GameSprite):
     self.startingFrames = {}
     self.animationFrames = {}
     self.frame = 0  # ~ stores current frame number
-    self.animationLock = 0  # ~ Allows to set a number of frames for which animation won't change
+    self._animationLock = False  # ~ Allows to set a number of frames for which animation won't change
+    self._lockedFrames = 0
+
+  @property
+  def animationLock(self) -> bool:
+    return self._animationLock
+
+  @animationLock.setter
+  def animationLock(self, newValue: bool) -> None:
+    if not newValue:
+      self._lockedFrames = 0
+      self._animationLock = newValue
+      return
+    self._animationLock = newValue
+    
+
+  @property
+  def lockedFrames(self) -> int:
+    return self._lockedFrames
+  
+  @lockedFrames.setter
+  def lockedFrames(self, newValue: int) -> None:
+    if newValue == 0:
+      self._animationLock = False
+    else:
+      self._lockedFrames = newValue
+      self._animationLock = True
 
   @property
   def animation(self) -> str:
@@ -63,7 +89,7 @@ class Entity(GameSprite):
 
   @animation.setter
   def animation(self, newValue: str) -> None:
-    if newValue != self._animation and self.animationLock == 0:
+    if newValue != self._animation and not self.animationLock:
       self._animation = newValue
       self.frame = self.startingFrames[newValue]
 
@@ -90,8 +116,8 @@ class Entity(GameSprite):
     self.startingFrames[frameName] = startFrame
 
   def nextFrame(self):
-    if self.animationLock > 0:
-      self.animationLock -= 1
+    if self._lockedFrames > 0:
+      self.lockedFrames -= 1
 
     self.frame += 1
     frameIds = self.animations[self.animation]
