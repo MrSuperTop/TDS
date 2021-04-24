@@ -9,6 +9,7 @@ class Text(pygame.sprite.Sprite):
     def __init__(
       self,
       camera,
+      alignment = 'center',
       coords: Union[tuple[float, float], list[float, float]] = (0, 0),
       text = '',
       fontSize = 16,
@@ -25,7 +26,13 @@ class Text(pygame.sprite.Sprite):
 
       self.rect = None
       self.text = text
-      self.rect = self.image.get_rect(center=coords)
+
+      self.alignment = alignment
+      if alignment == 'center':
+        self.rect = self.image.get_rect(center=coords)
+      elif alignment == 'left':
+        self.rect = self.image.get_rect(topleft=coords)
+
 
       texts.add(self)
 
@@ -37,7 +44,10 @@ class Text(pygame.sprite.Sprite):
     def text(self, newText):
       self.image = self.font.render(str(newText), 1, self.color)
       if self.rect is not None:
-        self.rect = self.image.get_rect(center=self.rect.topleft)
+        if self.alignment == 'center':
+          self.rect = self.image.get_rect(center=self.rect.center)
+        elif self.alignment == 'left':
+          self.rect = self.image.get_rect(topleft=self.rect.topleft)
       else:
         self.rect = self.image.get_rect()
 

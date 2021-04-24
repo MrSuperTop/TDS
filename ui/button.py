@@ -5,6 +5,7 @@ import pygame
 from groups import buttons
 
 from ui.text import Text
+from config import buttonsColor, buttonsTextColor
 
 
 # * Events
@@ -25,6 +26,7 @@ class OnClick:
 class Button(pygame.sprite.Sprite):
   event = None
 
+  # TODO: Make a alignment property similar to text
   def __init__(
     self,
     camera,
@@ -33,9 +35,9 @@ class Button(pygame.sprite.Sprite):
     size: Union[tuple[float, float], list[float, float]] = (0, 0),
     text = '',
     fontSize = 16,
-    textColor = (0, 0, 0),
-    boldText = False,
-    color = (255, 0, 0)
+    textColor = buttonsTextColor,
+    boldText = True,
+    color = buttonsColor
   ):
     super().__init__()
 
@@ -46,7 +48,7 @@ class Button(pygame.sprite.Sprite):
     self.rect = self.surface.fill(color)
 
     self.rect.center = centerCoords
-    self.text = Text(camera, (0, 0), text, fontSize, textColor, bold=boldText)
+    self.text = Text(camera, 'center', (0, 0), text, fontSize, textColor, bold=boldText)
     self.text.rect.center = self.rect.center
 
     buttons.add(self)
@@ -54,10 +56,10 @@ class Button(pygame.sprite.Sprite):
   def addEvent(self, event: object):
     self.event = event
 
-  def update(self):
+  def update(self, gameState):
     if self.event is not None and self.event.name == 'click':
       if self.event.check(self.rect):
-        self.event.handler()
+        self.event.handler(gameState)
 
     self.renderSurface.blit(self.surface, self.rect)
     self.text.update()
