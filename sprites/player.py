@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from math import sqrt, cos, sin, radians
+from math import cos, radians, sin, sqrt
 from time import time
 from typing import Union
 
@@ -7,14 +7,13 @@ import config
 import pygame
 from config import windowSize
 from pygame.constants import (BUTTON_WHEELDOWN, BUTTON_WHEELUP, K_1, K_2, K_3,
-                              K_DOWN, K_LEFT, K_RIGHT, K_UP, MOUSEWHEEL, K_a,
+                              K_DOWN, K_LEFT, K_RIGHT, K_UP, K_r, MOUSEWHEEL, K_a,
                               K_d, K_s, K_w)
 from pygame.math import Vector2
 
 from sprites.bullet import Bullet
 from sprites.collider import Collider
 from sprites.entity import Entity, collidingObjects
-
 
 
 class ShottingPoint:
@@ -67,11 +66,13 @@ class Player(Entity):
     speed: int = 5,
     collider: Collider = None,
     health: int = 100,
+    ammoText: object = None
   ) -> None:
     super().__init__(camera, static, coords, sizeScaler, imgPath, collider)
 
     collidingObjects.remove(self)
     self.rect.topleft = (windowSize[0] / 2 - self.rect.center[0], windowSize[1] / 2 - self.rect.center[1])
+    self.ammoText = ammoText
 
     self.speed = speed
     # TODO: If needed implament this in the GameSprite class
@@ -84,7 +85,7 @@ class Player(Entity):
     self.weaponName = 'knife'
     self.weaponIndex = 2
     self.weaponsList = [
-      Weapon('rifle', True, 0.1, 80, -15, 30, 1),
+      Weapon('rifle', True, 0.1, 80, -15, 30, .75),
       Weapon('handgun', True, 0.25, 75, -25, 15, .75),
       Weapon('knife', False)
     ]
@@ -106,16 +107,6 @@ class Player(Entity):
       if weapon.canShoot:
         self.loadAnimation(f'{weapon.name}/shoot', *framerates[i][2])
         self.loadAnimation(f'{weapon.name}/reload', *framerates[i][3])
-
-
-    # self.loadAnimation('knife/idle', 10)
-    # self.loadAnimation('knife/move', 20, 9)
-    # self.loadAnimation('rifle/idle', 10)
-    # self.loadAnimation('rifle/move', 20)
-    # self.loadAnimation('rifle/shoot', 20)
-    # self.loadAnimation('handgun/idle', 10)
-    # self.loadAnimation('handgun/move', 20)
-    # self.loadAnimation('handgun/shoot', 20)
 
     # * Rotation pivot
     pivotSurface = pygame.Surface((15, 15))
@@ -160,7 +151,7 @@ class Player(Entity):
       'left': keys[K_LEFT] or keys[K_a],
       'right': keys[K_RIGHT] or keys[K_d],
       'up':  keys[K_UP] or keys[K_w],
-      'down': keys[K_DOWN] or keys[K_s]
+      'down': keys[K_DOWN] or keys[K_s],
     }
 
     # * Number of pressed keys for this frame
@@ -200,14 +191,17 @@ class Player(Entity):
       'main': keys[K_1],
       'secondary': keys[K_2],
       'melee': keys[K_3],
+      'reload': keys[K_r]
     }
 
+    # * Scroll wheel
     if event is not None:
       if event.y > 0:
         self.weaponIndex -= 1
       elif event.y < 0:
         self.weaponIndex += 1
 
+    # * Keyboard buttons
     if pressed['main']:
       self.weaponIndex = 0
     if pressed['secondary']:
@@ -215,6 +209,11 @@ class Player(Entity):
     if pressed['melee']:
       self.weaponIndex = 2
 
+    # * Checking weather we need to reload
+    if pressed['reload'] and self.weapon.ammo != self.weapon.magCapacity:
+      self.reload()
+
+    # * Checking weapon index and setting a new weapon index
     if self.weaponIndex >= len(self.weaponsList):
       self.weaponIndex = 0
     elif self.weaponIndex < 0:
@@ -240,6 +239,8 @@ class Player(Entity):
       self.weapon.ammo = self.weapon.magCapacity
 
     if self.reloading:
+      self.ammoText.text = 'Reloading...'
+      self.ammoText.update()
       return
 
     buttons = pygame.mouse.get_pressed()
@@ -253,6 +254,10 @@ class Player(Entity):
       self.weapon.ammo -= 1
     elif self.weapon.ammo <= 0:
       self.reload()
+
+    self.ammoText.text = f'Ammo: {self.weapon.ammo} / {self.weapon.magCapacity}'
+    self.ammoText.update()
+
 
 
   @property
@@ -285,7 +290,7 @@ class Player(Entity):
   def draw(self):
     super().draw()
     if config.drawColliderBorders:
-      self.surface.blit(self.pivot.surface, self.pivot.center)
+      self.surface.blit(self.pivot.surface, self.pivot.rect)
 
   def update(self, event) -> None:
     """
